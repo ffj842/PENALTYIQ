@@ -573,7 +573,7 @@ if match_id_saisi is not None:
 
         prediction = 1 if probabilite1 >= 0.5 else 2
 
-                fiabilite_confrontation = min(
+        fiabilite_confrontation = min(
             1,
             total_confrontations / 5
         )
