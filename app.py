@@ -440,6 +440,11 @@ if match_id_saisi is not None:
 # MOTEUR DE PREDICTION PENALTYIQ
 # ==========================================
 
+
+# ==========================================
+# MOTEUR DE PREDICTION PENALTYIQ
+# ==========================================
+
 if match_id_saisi is not None:
 
     if st.button("🧠 Prédire le vainqueur"):
@@ -449,38 +454,77 @@ if match_id_saisi is not None:
             (1 / cote1_saisie) + (1 / cote2_saisie)
         )
 
-        # Récupération des anciennes séances terminées
-        historique_apprentissage = conn.execute("""
+        # Historique individuel de l'équipe 1
+        historique_a = conn.execute("""
         SELECT
             COUNT(*),
-            SUM(CASE WHEN winner = 1 THEN 1 ELSE 0 END),
-            SUM(CASE WHEN winner = 2 THEN 1 ELSE 0 END)
-        FROM decoded_sessions
-        WHERE winner IN (1, 2)
-        """).fetchone()
+            SUM(
+                CASE
+                    WHEN LOWER(TRIM(winner)) = LOWER(TRIM(?))
+                    THEN 1 ELSE 0
+                END
+            )
+        FROM matches
+        WHERE status = 'Terminé'
+        AND (
+            LOWER(TRIM(team_a)) = LOWER(TRIM(?))
+            OR LOWER(TRIM(team_b)) = LOWER(TRIM(?))
+        )
+        AND winner IS NOT NULL
+        """, (
+            equipe1_saisie,
+            equipe1_saisie,
+            equipe1_saisie
+        )).fetchone()
 
-        nombre_seances = historique_apprentissage[0]
-        victoires1 = historique_apprentissage[1] or 0
-        victoires2 = historique_apprentissage[2] or 0
+        # Historique individuel de l'équipe 2
+        historique_b = conn.execute("""
+        SELECT
+            COUNT(*),
+            SUM(
+                CASE
+                    WHEN LOWER(TRIM(winner)) = LOWER(TRIM(?))
+                    THEN 1 ELSE 0
+                END
+            )
+        FROM matches
+        WHERE status = 'Terminé'
+        AND (
+            LOWER(TRIM(team_a)) = LOWER(TRIM(?))
+            OR LOWER(TRIM(team_b)) = LOWER(TRIM(?))
+        )
+        AND winner IS NOT NULL
+        """, (
+            equipe2_saisie,
+            equipe2_saisie,
+            equipe2_saisie
+        )).fetchone()
 
-        # Estimation historique avec lissage
-        probabilite_historique1 = (
-            victoires1 + 1
-        ) / (nombre_seances + 2)
+        matchs_a = historique_a[0] or 0
+        victoires_a = historique_a[1] or 0
 
-        # Fiabilité de l'historique
-        fiabilite_historique = (
-            nombre_seances / (nombre_seances + 10)
+        matchs_b = historique_b[0] or 0
+        victoires_b = historique_b[1] or 0
+
+        # Taux de victoire avec lissage
+        taux_a = (victoires_a + 1) / (matchs_a + 2)
+        taux_b = (victoires_b + 1) / (matchs_b + 2)
+
+        # Comparaison des performances individuelles
+        probabilite_historique1 = taux_a / (taux_a + taux_b)
+
+        # Fiabilité selon les données disponibles
+        fiabilite_historique = min(
+            1,
+            min(matchs_a, matchs_b) / 10
         )
 
         # Combinaison des cotes et de l'historique
+        poids_historique = 0.25 * fiabilite_historique
+
         probabilite1 = (
-            probabilite_cote1 * (
-                1 - 0.25 * fiabilite_historique
-            )
-            + probabilite_historique1 * (
-                0.25 * fiabilite_historique
-            )
+            probabilite_cote1 * (1 - poids_historique)
+            + probabilite_historique1 * poids_historique
         )
 
         probabilite2 = 1 - probabilite1
@@ -519,10 +563,12 @@ if match_id_saisi is not None:
             f"{confiance:.1f} %"
         )
 
-        st.write(
-            "Séances historiques analysées :",
-            nombre_seances
-        )
+        st.write("Historique de", equipe1_saisie)
+        st.write("Matchs :", matchs_a, "| Victoires :", victoires_a)
+
+        st.write("Historique de", equipe2_saisie)
+        st.write("Matchs :", matchs_b, "| Victoires :", victoires_b)
+
 
 code_saisi = st.text_input(
     "Entre le code de la séance",
