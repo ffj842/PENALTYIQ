@@ -30,7 +30,13 @@ CREATE TABLE IF NOT EXISTS matches (
     winner TEXT
 )
 """)
-
+conn.execute("""
+CREATE TABLE IF NOT EXISTS teams (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+)
+""")
 # Ajouter le statut si la colonne n'existe pas encore
 columns = [
     row[1] for row in
@@ -145,7 +151,16 @@ with st.form("match_form"):
                 winner,
                 status
             ))
+            # Enregistrer automatiquement les équipes
+            conn.execute(
+                "INSERT OR IGNORE INTO teams (name) VALUES (?)",
+                (team_a.strip(),)
+            )
 
+            conn.execute(
+                "INSERT OR IGNORE INTO teams (name) VALUES (?)",
+                (team_b.strip(),)
+            )
             conn.commit()
             st.success("Match enregistré avec succès !")
             st.rerun()
