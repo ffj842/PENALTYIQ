@@ -435,6 +435,7 @@ if match_id_saisi is not None:
     else:
         st.warning("Les cotes doivent être supérieures à zéro.")
 
+
 # ==========================================
 # MOTEUR DE PREDICTION PENALTYIQ
 # ==========================================
@@ -527,9 +528,6 @@ code_saisi = st.text_input(
     "Entre le code de la séance",
     placeholder="Exemple : 12121010"
 )
-
-
-
 if st.button("Analyser la séance"):
     if match_id_saisi is None:
         st.error("Sélectionne d'abord un match.")
