@@ -641,6 +641,45 @@ AND (
 
 st.metric("⚠️ Surprises : favoris battus", surprises)
 
+# ==========================================
+# ANALYSE FAVORIS ET OUTSIDERS
+# ==========================================
+
+analyse_favoris = stats_conn.execute("""
+SELECT
+    COUNT(*) AS total,
+    SUM(CASE
+        WHEN (odds1 < odds2 AND winner = 1)
+          OR (odds2 < odds1 AND winner = 2)
+        THEN 1 ELSE 0 END) AS favoris_gagnants,
+    SUM(CASE
+        WHEN (odds1 < odds2 AND winner = 2)
+          OR (odds2 < odds1 AND winner = 1)
+        THEN 1 ELSE 0 END) AS outsiders_gagnants
+FROM decoded_sessions
+WHERE winner IN (1, 2)
+AND odds1 IS NOT NULL
+AND odds2 IS NOT NULL
+AND odds1 != odds2
+""").fetchone()
+
+total_analyses = analyse_favoris[0]
+favoris_gagnants = analyse_favoris[1] or 0
+outsiders_gagnants = analyse_favoris[2] or 0
+
+taux_surprises = (
+    outsiders_gagnants / total_analyses * 100
+    if total_analyses > 0 else 0
+)
+
+st.subheader("📊 Analyse des favoris et outsiders")
+
+f1, f2, f3 = st.columns(3)
+
+f1.metric("🏆 Favoris gagnants", favoris_gagnants)
+f2.metric("⚠️ Outsiders gagnants", outsiders_gagnants)
+f3.metric("📈 Taux de surprises", f"{taux_surprises:.1f} %")
+
 taux_reussite = (
     pronostics_corrects / pronostics_evalues * 100
     if pronostics_evalues > 0 else 0
