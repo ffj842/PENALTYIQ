@@ -179,3 +179,124 @@ else:
     st.info("Aucun match enregistré pour le moment.")
 
 conn.close()
+# ==========================================
+# PENALTYIQ - DECODEUR DES TIRS AU BUT
+# ==========================================
+
+def penaltyiq_decode(code):
+    code = "".join(code.split())
+
+    if not code:
+        return {"error": "Entre un code pour commencer."}
+
+    if any(c not in "012" for c in code):
+        return {"error": "Le code doit contenir uniquement 0, 1 et 2."}
+
+    score1 = 0
+    score2 = 0
+    winner = None
+    phase = "Première série"
+
+    for i, chiffre in enumerate(code):
+        equipe = 1 if i % 2 == 0 else 2
+
+        if chiffre == "1" and equipe != 1:
+            return {"error": f"Erreur au tir numéro {i+1} : l'équipe 2 doit être représentée par 2 ou 0."}
+
+        if chiffre == "2" and equipe != 2:
+            return {"error": f"Erreur au tir numéro {i+1} : l'équipe 1 doit être représentée par 1 ou 0."}
+
+        if chiffre != "0":
+            if equipe == 1:
+                score1 += 1
+            else:
+                score2 += 1
+
+        # Vérification après chaque paire complète
+        if i % 2 == 1:
+            paire = (i + 1) // 2
+
+            if paire <= 5:
+                restant = 5 - paire
+
+                if score1 > score2 + restant:
+                    winner = 1
+                    break
+
+                if score2 > score1 + restant:
+                    winner = 2
+                    break
+
+                if paire == 5:
+                    if score1 > score2:
+                        winner = 1
+                    elif score2 > score1:
+                        winner = 2
+                    else:
+                        phase = "Mort subite"
+
+            else:
+                phase = "Mort subite"
+
+                tir1 = code[i - 1]
+                tir2 = code[i]
+
+                # 1 contre 0 : équipe 1 gagne
+                if tir1 == "1" and tir2 == "0":
+                    winner = 1
+
+                # 0 contre 2 : équipe 2 gagne
+                elif tir1 == "0" and tir2 == "2":
+                    winner = 2
+
+    if winner:
+        statut = f"Équipe {winner} gagnante"
+    elif len(code) < 10:
+        statut = "Séance en cours"
+    elif len(code) == 10 and score1 == score2:
+        statut = "Égalité - mort subite à venir"
+    elif len(code) > 10 and len(code) % 2 == 1:
+        statut = "En attente du tir de l'équipe 2"
+    else:
+        statut = "Mort subite en cours"
+
+    return {
+        "score1": score1,
+        "score2": score2,
+        "winner": winner,
+        "phase": phase,
+        "statut": statut
+    }
+
+
+st.divider()
+st.header("⚽ Décodeur PENALTYIQ")
+
+code_saisi = st.text_input(
+    "Entre le code de la séance",
+    placeholder="Exemple : 12121010"
+)
+
+if st.button("Analyser la séance"):
+    resultat = penaltyiq_decode(code_saisi)
+
+    if "error" in resultat:
+        st.error(resultat["error"])
+    else:
+        st.subheader("Résultat de l'analyse")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.metric("Équipe 1", resultat["score1"])
+
+        with col2:
+            st.metric("Équipe 2", resultat["score2"])
+
+        st.write("Phase :", resultat["phase"])
+        st.write("Statut :", resultat["statut"])
+
+        if resultat["winner"]:
+            st.success(
+                f"🏆 L'équipe {resultat['winner']} a gagné !"
+            )
