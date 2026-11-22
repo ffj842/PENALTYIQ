@@ -362,3 +362,71 @@ else:
     st.info("Aucune séance enregistrée pour le moment.")
 
 conn.close()
+
+# ==========================================
+# STATISTIQUES PENALTYIQ
+# ==========================================
+
+st.divider()
+st.header("📊 Statistiques PENALTYIQ")
+
+stats_conn = sqlite3.connect("penaltyiq.db")
+
+total = stats_conn.execute("""
+SELECT COUNT(*) FROM decoded_sessions
+""").fetchone()[0]
+
+victoires = stats_conn.execute("""
+SELECT winner, COUNT(*)
+FROM decoded_sessions
+WHERE winner IS NOT NULL
+GROUP BY winner
+""").fetchall()
+
+moyennes = stats_conn.execute("""
+SELECT AVG(score1), AVG(score2)
+FROM decoded_sessions
+""").fetchone()
+
+scores = stats_conn.execute("""
+SELECT score1, score2, COUNT(*)
+FROM decoded_sessions
+GROUP BY score1, score2
+ORDER BY COUNT(*) DESC
+""").fetchall()
+
+col1, col2, col3 = st.columns(3)
+
+with col1:
+    st.metric("Séances enregistrées", total)
+
+with col2:
+    equipe1 = sum(n for e, n in victoires if e == 1)
+    st.metric("Victoires équipe 1", equipe1)
+
+with col3:
+    equipe2 = sum(n for e, n in victoires if e == 2)
+    st.metric("Victoires équipe 2", equipe2)
+
+if total > 0:
+    st.subheader("Moyenne des buts")
+
+    c1, c2 = st.columns(2)
+
+    with c1:
+        st.metric("Équipe 1", round(moyennes[0], 2))
+
+    with c2:
+        st.metric("Équipe 2", round(moyennes[1], 2))
+
+    st.subheader("Scores les plus fréquents")
+
+    st.dataframe(
+        scores,
+        use_container_width=True
+    )
+
+else:
+    st.info("Ajoute des séances pour afficher les statistiques.")
+
+stats_conn.close()
