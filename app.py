@@ -783,3 +783,77 @@ else:
     st.info("Ajoute des séances pour afficher les statistiques.")
 
 stats_conn.close()
+
+# ==========================================
+# FIABILITE REELLE DES COTES
+# ==========================================
+
+donnees_fiabilite = stats_conn.execute("""
+SELECT odds1, odds2, winner
+FROM decoded_sessions
+WHERE winner IN (1, 2)
+AND odds1 > 0
+AND odds2 > 0
+AND odds1 != odds2
+""").fetchall()
+
+if donnees_fiabilite:
+
+    probabilites_favoris = []
+    resultats_favoris = []
+
+    for cote1, cote2, gagnant in donnees_fiabilite:
+
+        if cote1 < cote2:
+            probabilite_favori = (1 / cote1) / (
+                (1 / cote1) + (1 / cote2)
+            )
+            favori_gagnant = 1 if gagnant == 1 else 0
+
+        else:
+            probabilite_favori = (1 / cote2) / (
+                (1 / cote1) + (1 / cote2)
+            )
+            favori_gagnant = 1 if gagnant == 2 else 0
+
+        probabilites_favoris.append(probabilite_favori)
+        resultats_favoris.append(favori_gagnant)
+
+    probabilite_annoncee = (
+        sum(probabilites_favoris)
+        / len(probabilites_favoris) * 100
+    )
+
+    taux_reel_favoris = (
+        sum(resultats_favoris)
+        / len(resultats_favoris) * 100
+    )
+
+    ecart_fiabilite = taux_reel_favoris - probabilite_annoncee
+
+    st.subheader("🎯 Fiabilité réelle des cotes")
+
+    c1, c2, c3 = st.columns(3)
+
+    c1.metric(
+        "Probabilité moyenne annoncée",
+        f"{probabilite_annoncee:.1f} %"
+    )
+
+    c2.metric(
+        "Favoris réellement gagnants",
+        f"{taux_reel_favoris:.1f} %"
+    )
+
+    c3.metric(
+        "Écart observé",
+        f"{ecart_fiabilite:+.1f} points"
+    )
+
+    st.caption(
+        f"Calcul basé sur {len(donnees_fiabilite)} séances terminées. "
+        "Les résultats restent provisoires avec un petit historique."
+    )
+
+else:
+    st.info("Pas encore de données pour mesurer la fiabilité des cotes.")
