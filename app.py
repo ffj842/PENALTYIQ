@@ -296,11 +296,13 @@ colonnes = [ligne[1] for ligne in conn.execute(
     "PRAGMA table_info(decoded_sessions)"
 ).fetchall()]
 
+
 for nom, type_colonne in [
     ("team1", "TEXT"),
     ("team2", "TEXT"),
     ("odds1", "REAL"),
     ("odds2", "REAL"),
+    ("match_id", "INTEGER"),
 ]:
     if nom not in colonnes:
         conn.execute(
