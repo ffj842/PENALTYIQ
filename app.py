@@ -313,60 +313,96 @@ conn.commit()
 
 st.divider()
 st.header("⚽ Décodeur PENALTYIQ")
-equipe1_saisie = st.text_input("Nom de l'équipe 1", key="decode_team1")
-equipe2_saisie = st.text_input("Nom de l'équipe 2", key="decode_team2")
 
-cote1_saisie = st.text_input("Cote équipe 1", placeholder="Ex. 1.65")
-cote2_saisie = st.text_input("Cote équipe 2", placeholder="Ex. 2.10")
+matchs_disponibles = conn.execute("""
+SELECT id, team_a, team_b, odds_a, odds_b
+FROM matches
+WHERE status = 'À venir'
+ORDER BY id DESC
+""").fetchall()
+
+if matchs_disponibles:
+    choix_match = st.selectbox(
+        "Sélectionne le match à analyser",
+        matchs_disponibles,
+        format_func=lambda m: (
+            f"{m[1]} - {m[2]} | Cotes : {m[3]} / {m[4]}"
+        )
+    )
+
+    match_id_saisi = choix_match[0]
+    equipe1_saisie = choix_match[1]
+    equipe2_saisie = choix_match[2]
+    cote1_saisie = choix_match[3]
+    cote2_saisie = choix_match[4]
+else:
+    st.warning("Aucun match à venir. Enregistre d'abord un match.")
+    match_id_saisi = None
+
 code_saisi = st.text_input(
     "Entre le code de la séance",
     placeholder="Exemple : 12121010"
 )
 
 
+
 if st.button("Analyser la séance"):
-    resultat = penaltyiq_decode(code_saisi)
-
-    if "error" in resultat:
-        st.error(resultat["error"])
-
+    if match_id_saisi is None:
+        st.error("Sélectionne d'abord un match.")
     else:
-        col1, col2 = st.columns(2)
+        resultat = penaltyiq_decode(code_saisi)
 
-        with col1:
-            st.metric("Équipe 1", resultat["score1"])
+        if "error" in resultat:
+            st.error(resultat["error"])
 
-        with col2:
-            st.metric("Équipe 2", resultat["score2"])
+        else:
+            col1, col2 = st.columns(2)
 
-        st.write("Phase :", resultat["phase"])
-        st.write("Statut :", resultat["statut"])
+            with col1:
+                st.metric("Équipe 1", resultat["score1"])
 
-        if resultat["winner"]:
-            st.success(
-                f"🏆 Équipe {resultat['winner']} gagnante !"
-            )
+            with col2:
+                st.metric("Équipe 2", resultat["score2"])
 
-        conn.execute("""
-        INSERT INTO decoded_sessions
-        (code, score1, score2, winner, phase, team1, team2, odds1, odds2)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            code_saisi.strip(),
-            resultat["score1"],
-            resultat["score2"],
-            resultat["winner"],
-            resultat["phase"],
-            equipe1_saisie.strip(),
-            equipe2_saisie.strip(),
-            float(cote1_saisie.replace(",", ".")) if cote1_saisie.strip() else None,
-            float(cote2_saisie.replace(",", ".")) if cote2_saisie.strip() else None
-        ))
+            st.write("Phase :", resultat["phase"])
+            st.write("Statut :", resultat["statut"])
 
-        conn.commit()
-        st.success("Séance enregistrée dans l'historique !")
-        st.write("Vérification :", conn.execute("SELECT COUNT(*) FROM decoded_sessions").fetchone()[0])
+            if resultat["winner"]:
+                gagnant = (
+                    equipe1_saisie
+                    if resultat["winner"] == 1
+                    else equipe2_saisie
+                )
 
+                st.success(f"🏆 Vainqueur : {gagnant}")
+
+            conn.execute("""
+            INSERT INTO decoded_sessions
+            (match_id, code, score1, score2, winner, phase,
+             team1, team2, odds1, odds2)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                match_id_saisi,
+                code_saisi.strip(),
+                resultat["score1"],
+                resultat["score2"],
+                resultat["winner"],
+                resultat["phase"],
+                equipe1_saisie,
+                equipe2_saisie,
+                cote1_saisie,
+                cote2_saisie
+            ))
+
+            if resultat["winner"]:
+                conn.execute("""
+                UPDATE matches
+                SET winner = ?, status = 'Terminé'
+                WHERE id = ?
+                """, (gagnant, match_id_saisi))
+
+            conn.commit()
+            st.success("Résultat enregistré et match mis à jour !")
 
 historique = conn.execute("""
 SELECT created_at, code, score1, score2, winner, phase, team1, team2, odds1, odds2
