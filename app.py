@@ -291,9 +291,31 @@ CREATE TABLE IF NOT EXISTS decoded_sessions (
 
 conn.commit()
 
+# Ajouter les colonnes des équipes et des cotes si elles n'existent pas
+colonnes = [ligne[1] for ligne in conn.execute(
+    "PRAGMA table_info(decoded_sessions)"
+).fetchall()]
+
+for nom, type_colonne in [
+    ("team1", "TEXT"),
+    ("team2", "TEXT"),
+    ("odds1", "REAL"),
+    ("odds2", "REAL"),
+]:
+    if nom not in colonnes:
+        conn.execute(
+            f"ALTER TABLE decoded_sessions ADD COLUMN {nom} {type_colonne}"
+        )
+
+conn.commit()
+
 st.divider()
 st.header("⚽ Décodeur PENALTYIQ")
+equipe1_saisie = st.text_input("Nom de l'équipe 1", key="decode_team1")
+equipe2_saisie = st.text_input("Nom de l'équipe 2", key="decode_team2")
 
+cote1_saisie = st.text_input("Cote équipe 1", placeholder="Ex. 1.65")
+cote2_saisie = st.text_input("Cote équipe 2", placeholder="Ex. 2.10")
 code_saisi = st.text_input(
     "Entre le code de la séance",
     placeholder="Exemple : 12121010"
@@ -322,17 +344,23 @@ if st.button("Analyser la séance"):
                 f"🏆 Équipe {resultat['winner']} gagnante !"
             )
 
-            conn.execute("""
-            INSERT INTO decoded_sessions
-            (code, score1, score2, winner, phase)
-            VALUES (?, ?, ?, ?, ?)
-            """, (
-                code_saisi.strip(),
-                resultat["score1"],
-                resultat["score2"],
-                resultat["winner"],
-                resultat["phase"]
-            ))
+            
+conn.execute("""
+INSERT INTO decoded_sessions
+(code, score1, score2, winner, phase, team1, team2, odds1, odds2)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+""", (
+    code_saisi.strip(),
+    resultat["score1"],
+    resultat["score2"],
+    resultat["winner"],
+    resultat["phase"],
+    equipe1_saisie.strip(),
+    equipe2_saisie.strip(),
+    float(cote1_saisie.replace(",", ".")) if cote1_saisie.strip() else None,
+float(cote2_saisie.replace(",", ".")) if cote2_saisie.strip() else None
+))
+
 
             conn.commit()
             st.success("Séance enregistrée dans l'historique !")
@@ -341,7 +369,7 @@ st.divider()
 st.subheader("📚 Historique des séances")
 
 historique = conn.execute("""
-SELECT created_at, code, score1, score2, winner
+SELECT created_at, code, score1, score2, winner, phase, team1, team2, odds1, odds2
 FROM decoded_sessions
 ORDER BY id DESC
 """).fetchall()
@@ -351,11 +379,18 @@ if historique:
         historique,
         use_container_width=True,
         column_config={
-            "created_at": "Date",
-            "code": "Code",
-            "score1": "Équipe 1",
-            "score2": "Équipe 2",
-            "winner": "Vainqueur"
+           columns=[
+    "created_at",
+    "code",
+    "score1",
+    "score2",
+    "winner",
+    "phase",
+    "team1",
+    "team2",
+    "odds1",
+    "odds2"
+]
         }
     )
 else:
