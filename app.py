@@ -290,7 +290,27 @@ CREATE TABLE IF NOT EXISTS decoded_sessions (
 """)
 
 conn.commit()
+# ==========================================
+# MEMOIRE DES PREDICTIONS PENALTYIQ
+# ==========================================
 
+conn.execute("""
+CREATE TABLE IF NOT EXISTS predictions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    match_id INTEGER,
+    team1 TEXT,
+    team2 TEXT,
+    odds1 REAL,
+    odds2 REAL,
+    predicted_winner INTEGER,
+    confidence REAL,
+    actual_winner INTEGER,
+    prediction_correct INTEGER,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP
+)
+""")
+
+conn.commit()
 # Ajouter les colonnes des équipes et des cotes si elles n'existent pas
 colonnes = [ligne[1] for ligne in conn.execute(
     "PRAGMA table_info(decoded_sessions)"
@@ -338,6 +358,94 @@ if matchs_disponibles:
 else:
     st.warning("Aucun match à venir. Enregistre d'abord un match.")
     match_id_saisi = None
+
+# ==========================================
+# MOTEUR DE PREDICTION PENALTYIQ
+# ==========================================
+
+if match_id_saisi is not None:
+
+    if st.button("🧠 Prédire le vainqueur"):
+
+        # Probabilités calculées à partir des cotes
+        probabilite_cote1 = (1 / cote1_saisie) / (
+            (1 / cote1_saisie) + (1 / cote2_saisie)
+        )
+
+        # Récupération des anciennes séances terminées
+        historique_apprentissage = conn.execute("""
+        SELECT
+            COUNT(*),
+            SUM(CASE WHEN winner = 1 THEN 1 ELSE 0 END),
+            SUM(CASE WHEN winner = 2 THEN 1 ELSE 0 END)
+        FROM decoded_sessions
+        WHERE winner IN (1, 2)
+        """).fetchone()
+
+        nombre_seances = historique_apprentissage[0]
+        victoires1 = historique_apprentissage[1] or 0
+        victoires2 = historique_apprentissage[2] or 0
+
+        # Estimation historique avec lissage
+        probabilite_historique1 = (
+            victoires1 + 1
+        ) / (nombre_seances + 2)
+
+        # Fiabilité de l'historique
+        fiabilite_historique = (
+            nombre_seances / (nombre_seances + 10)
+        )
+
+        # Combinaison des cotes et de l'historique
+        probabilite1 = (
+            probabilite_cote1 * (
+                1 - 0.25 * fiabilite_historique
+            )
+            + probabilite_historique1 * (
+                0.25 * fiabilite_historique
+            )
+        )
+
+        probabilite2 = 1 - probabilite1
+
+        prediction = 1 if probabilite1 >= 0.5 else 2
+
+        confiance = max(probabilite1, probabilite2) * 100
+
+        # Enregistrement du pronostic
+        conn.execute("""
+        INSERT INTO predictions
+        (match_id, team1, team2, odds1, odds2,
+         predicted_winner, confidence)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+        """, (
+            match_id_saisi,
+            equipe1_saisie,
+            equipe2_saisie,
+            cote1_saisie,
+            cote2_saisie,
+            prediction,
+            confiance
+        ))
+
+        conn.commit()
+
+        nom_prédit = (
+            equipe1_saisie if prediction == 1
+            else equipe2_saisie
+        )
+
+        st.success(f"Pronostic PENALTYIQ : {nom_prédit}")
+
+        st.metric(
+            "Indice estimé selon les données disponibles",
+            f"{confiance:.1f} %"
+        )
+
+        st.write(
+            "Séances historiques analysées :",
+            nombre_seances
+        )
 
 code_saisi = st.text_input(
     "Entre le code de la séance",
@@ -394,6 +502,7 @@ if st.button("Analyser la séance"):
                 cote2_saisie
             ))
 
+            
             if resultat["winner"]:
                 conn.execute("""
                 UPDATE matches
@@ -401,7 +510,24 @@ if st.button("Analyser la séance"):
                 WHERE id = ?
                 """, (gagnant, match_id_saisi))
 
+                # Evaluation des predictions PENALTYIQ
+                conn.execute("""
+                UPDATE predictions
+                SET actual_winner = ?,
+                    prediction_correct = CASE
+                        WHEN predicted_winner = ? THEN 1
+                        ELSE 0
+                    END
+                WHERE match_id = ?
+                  AND actual_winner IS NULL
+                """, (
+                    resultat["winner"],
+                    resultat["winner"],
+                    match_id_saisi
+                ))
+
             conn.commit()
+
             st.success("Résultat enregistré et match mis à jour !")
 
 historique = conn.execute("""
