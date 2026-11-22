@@ -781,9 +781,6 @@ if total > 0:
 
 else:
     st.info("Ajoute des séances pour afficher les statistiques.")
-
-stats_conn.close()
-
 # ==========================================
 # FIABILITE REELLE DES COTES
 # ==========================================
@@ -857,3 +854,6 @@ if donnees_fiabilite:
 
 else:
     st.info("Pas encore de données pour mesurer la fiabilité des cotes.")
+
+stats_conn.close()
+
