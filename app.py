@@ -672,6 +672,54 @@ taux_surprises = (
     if total_analyses > 0 else 0
 )
 
+# ==========================================
+# ANALYSE DES SURPRISES PAR TRANCHE DE COTES
+# ==========================================
+
+analyse_tranches = stats_conn.execute("""
+SELECT
+    CASE
+        WHEN MIN(odds1, odds2) < 1.50 THEN 'Moins de 1.50'
+        WHEN MIN(odds1, odds2) < 2.00 THEN '1.50 à 1.99'
+        WHEN MIN(odds1, odds2) < 2.50 THEN '2.00 à 2.49'
+        ELSE '2.50 et plus'
+    END AS tranche,
+
+    COUNT(*) AS matchs,
+
+    SUM(CASE
+        WHEN (odds1 < odds2 AND winner = 2)
+          OR (odds2 < odds1 AND winner = 1)
+        THEN 1 ELSE 0
+    END) AS surprises
+
+FROM decoded_sessions
+
+WHERE winner IN (1, 2)
+AND odds1 IS NOT NULL
+AND odds2 IS NOT NULL
+AND odds1 != odds2
+
+GROUP BY tranche
+""").fetchall()
+
+st.subheader("🔎 Surprises selon les cotes du favori")
+
+if analyse_tranches:
+    df_tranches = pd.DataFrame(
+        analyse_tranches,
+        columns=["Tranche de cote", "Matchs", "Surprises"]
+    )
+
+    df_tranches["Taux de surprises"] = (
+        df_tranches["Surprises"]
+        / df_tranches["Matchs"] * 100
+    ).round(1).astype(str) + " %"
+
+    st.dataframe(df_tranches, use_container_width=True)
+else:
+    st.info("Pas encore assez de résultats enregistrés.")
+
 st.subheader("📊 Analyse des favoris et outsiders")
 
 f1, f2, f3 = st.columns(3)
