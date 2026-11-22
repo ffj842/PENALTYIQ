@@ -373,6 +373,8 @@ ORDER BY id DESC
 """).fetchall()
 
 if historique:
+    st.write("TEST : le tableau contient", len(historique), "séances")
+   
     df_historique = pd.DataFrame(
         historique,
         columns=[
