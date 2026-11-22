@@ -365,6 +365,7 @@ if st.button("Analyser la séance"):
         st.success("Séance enregistrée dans l'historique !")
 
 
+
 historique = conn.execute("""
 SELECT created_at, code, score1, score2, winner, phase, team1, team2, odds1, odds2
 FROM decoded_sessions
@@ -372,26 +373,29 @@ ORDER BY id DESC
 """).fetchall()
 
 if historique:
-    st.dataframe(
+    df_historique = pd.DataFrame(
         historique,
-        use_container_width=True,
-        column_config={
-           columns=[
-    "created_at",
-    "code",
-    "score1",
-    "score2",
-    "winner",
-    "phase",
-    "team1",
-    "team2",
-    "odds1",
-    "odds2"
-]
-        }
+        columns=[
+            "Date",
+            "Code",
+            "Score équipe 1",
+            "Score équipe 2",
+            "Vainqueur",
+            "Phase",
+            "Équipe 1",
+            "Équipe 2",
+            "Cote équipe 1",
+            "Cote équipe 2"
+        ]
+    )
+
+    st.dataframe(
+        df_historique,
+        use_container_width=True
     )
 else:
     st.info("Aucune séance enregistrée pour le moment.")
+
 
 conn.close()
 
