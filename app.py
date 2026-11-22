@@ -596,6 +596,51 @@ FROM decoded_sessions
 GROUP BY score1, score2
 ORDER BY COUNT(*) DESC
 """).fetchall()
+
+# ==========================================
+# PERFORMANCE DU MOTEUR PENALTYIQ
+# ==========================================
+
+st.subheader("🧠 Performance des prédictions")
+
+pronostics_total = stats_conn.execute("""
+SELECT COUNT(*) FROM predictions
+""").fetchone()[0]
+
+pronostics_evalues = stats_conn.execute("""
+SELECT COUNT(*) FROM predictions
+WHERE actual_winner IS NOT NULL
+""").fetchone()[0]
+
+pronostics_corrects = stats_conn.execute("""
+SELECT COUNT(*) FROM predictions
+WHERE prediction_correct = 1
+""").fetchone()[0]
+
+pronostics_incorrects = stats_conn.execute("""
+SELECT COUNT(*) FROM predictions
+WHERE prediction_correct = 0
+""").fetchone()[0]
+
+taux_reussite = (
+    pronostics_corrects / pronostics_evalues * 100
+    if pronostics_evalues > 0 else 0
+)
+
+p1, p2, p3, p4 = st.columns(4)
+
+with p1:
+    st.metric("Pronostics totaux", pronostics_total)
+
+with p2:
+    st.metric("Pronostics corrects", pronostics_corrects)
+
+with p3:
+    st.metric("Pronostics incorrects", pronostics_incorrects)
+
+with p4:
+    st.metric("Taux de réussite", f"{taux_reussite:.1f} %")
+
 st.write("Nombre de séances récupérées par l'historique :", len(historique))
 col1, col2, col3 = st.columns(3)
 
