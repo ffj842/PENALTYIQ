@@ -363,7 +363,7 @@ if st.button("Analyser la séance"):
 
         conn.commit()
         st.success("Séance enregistrée dans l'historique !")
-
+        st.write("Vérification :", conn.execute("SELECT COUNT(*) FROM decoded_sessions").fetchone()[0])
 
 
 historique = conn.execute("""
