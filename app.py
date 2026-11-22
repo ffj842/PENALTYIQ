@@ -430,7 +430,7 @@ FROM decoded_sessions
 GROUP BY score1, score2
 ORDER BY COUNT(*) DESC
 """).fetchall()
-
+st.write("Nombre de séances récupérées par l'historique :", len(historique))
 col1, col2, col3 = st.columns(3)
 
 with col1:
