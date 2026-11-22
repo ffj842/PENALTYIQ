@@ -573,7 +573,19 @@ if match_id_saisi is not None:
 
         prediction = 1 if probabilite1 >= 0.5 else 2
 
-        confiance = max(probabilite1, probabilite2) * 100
+                fiabilite_confrontation = min(
+            1,
+            total_confrontations / 5
+        )
+
+        fiabilite_globale = (
+            0.7 * fiabilite_historique
+            + 0.3 * fiabilite_confrontation
+        )
+
+        confiance = 50 + (
+            max(probabilite1, probabilite2) * 100 - 50
+        ) * (0.5 + 0.5 * fiabilite_globale)
 
         # Enregistrement du pronostic
         conn.execute("""
