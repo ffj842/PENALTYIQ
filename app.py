@@ -362,8 +362,8 @@ float(cote2_saisie.replace(",", ".")) if cote2_saisie.strip() else None
 ))
 
 
-            conn.commit()
-            st.success("Séance enregistrée dans l'historique !")
+    conn.commit()
+    st.success("Séance enregistrée dans l'historique !")
 
 st.divider()
 st.subheader("📚 Historique des séances")
