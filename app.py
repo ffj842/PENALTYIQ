@@ -360,6 +360,67 @@ else:
     match_id_saisi = None
 
 # ==========================================
+# DETECTEUR DE MATCHS PIEGES EN TEMPS REEL
+# ==========================================
+
+if match_id_saisi is not None:
+
+    if cote1_saisie > 0 and cote2_saisie > 0:
+
+        rapport_cotes = max(cote1_saisie, cote2_saisie) / min(
+            cote1_saisie, cote2_saisie
+        )
+
+        ecart_cotes = (
+            abs(cote1_saisie - cote2_saisie)
+            / min(cote1_saisie, cote2_saisie)
+        ) * 100
+
+        probabilite1_avant = (1 / cote1_saisie) / (
+            (1 / cote1_saisie) + (1 / cote2_saisie)
+        )
+
+        probabilite2_avant = 1 - probabilite1_avant
+
+        if ecart_cotes < 15:
+            profil_match = "Cotes très proches"
+            alerte_match = "Match équilibré selon les cotes."
+        elif rapport_cotes < 1.50:
+            profil_match = "Favori modéré"
+            alerte_match = "Avantage modéré pour le favori."
+        else:
+            profil_match = "Favori très fort"
+            alerte_match = "Écart important entre les deux cotes."
+
+        nom_favori = (
+            equipe1_saisie if cote1_saisie < cote2_saisie
+            else equipe2_saisie
+        )
+
+        st.subheader("🔍 Détecteur de matchs en temps réel")
+
+        st.write("Profil détecté :", profil_match)
+        st.write("Favori selon les cotes :", nom_favori)
+        st.write(f"Écart relatif entre les cotes : {ecart_cotes:.1f} %")
+
+        d1, d2 = st.columns(2)
+
+        d1.metric(
+            f"Probabilité estimée - {equipe1_saisie}",
+            f"{probabilite1_avant * 100:.1f} %"
+        )
+
+        d2.metric(
+            f"Probabilité estimée - {equipe2_saisie}",
+            f"{probabilite2_avant * 100:.1f} %"
+        )
+
+        st.info(alerte_match)
+
+    else:
+        st.warning("Les cotes doivent être supérieures à zéro.")
+
+# ==========================================
 # MOTEUR DE PREDICTION PENALTYIQ
 # ==========================================
 
