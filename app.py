@@ -321,6 +321,7 @@ code_saisi = st.text_input(
     placeholder="Exemple : 12121010"
 )
 
+
 if st.button("Analyser la séance"):
     resultat = penaltyiq_decode(code_saisi)
 
@@ -344,29 +345,25 @@ if st.button("Analyser la séance"):
                 f"🏆 Équipe {resultat['winner']} gagnante !"
             )
 
-            
-conn.execute("""
-INSERT INTO decoded_sessions
-(code, score1, score2, winner, phase, team1, team2, odds1, odds2)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-""", (
-    code_saisi.strip(),
-    resultat["score1"],
-    resultat["score2"],
-    resultat["winner"],
-    resultat["phase"],
-    equipe1_saisie.strip(),
-    equipe2_saisie.strip(),
-    float(cote1_saisie.replace(",", ".")) if cote1_saisie.strip() else None,
-float(cote2_saisie.replace(",", ".")) if cote2_saisie.strip() else None
-))
+        conn.execute("""
+        INSERT INTO decoded_sessions
+        (code, score1, score2, winner, phase, team1, team2, odds1, odds2)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            code_saisi.strip(),
+            resultat["score1"],
+            resultat["score2"],
+            resultat["winner"],
+            resultat["phase"],
+            equipe1_saisie.strip(),
+            equipe2_saisie.strip(),
+            float(cote1_saisie.replace(",", ".")) if cote1_saisie.strip() else None,
+            float(cote2_saisie.replace(",", ".")) if cote2_saisie.strip() else None
+        ))
 
+        conn.commit()
+        st.success("Séance enregistrée dans l'historique !")
 
-    conn.commit()
-    st.success("Séance enregistrée dans l'historique !")
-
-st.divider()
-st.subheader("📚 Historique des séances")
 
 historique = conn.execute("""
 SELECT created_at, code, score1, score2, winner, phase, team1, team2, odds1, odds2
