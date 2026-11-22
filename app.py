@@ -269,6 +269,28 @@ def penaltyiq_decode(code):
     }
 
 
+# ==========================================
+# HISTORIQUE DES SEANCES PENALTYIQ
+# ==========================================
+
+import sqlite3
+
+conn = sqlite3.connect("penaltyiq.db")
+
+conn.execute("""
+CREATE TABLE IF NOT EXISTS decoded_sessions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+    code TEXT NOT NULL,
+    score1 INTEGER,
+    score2 INTEGER,
+    winner INTEGER,
+    phase TEXT
+)
+""")
+
+conn.commit()
+
 st.divider()
 st.header("⚽ Décodeur PENALTYIQ")
 
@@ -282,9 +304,8 @@ if st.button("Analyser la séance"):
 
     if "error" in resultat:
         st.error(resultat["error"])
-    else:
-        st.subheader("Résultat de l'analyse")
 
+    else:
         col1, col2 = st.columns(2)
 
         with col1:
@@ -298,5 +319,46 @@ if st.button("Analyser la séance"):
 
         if resultat["winner"]:
             st.success(
-                f"🏆 L'équipe {resultat['winner']} a gagné !"
+                f"🏆 Équipe {resultat['winner']} gagnante !"
             )
+
+            conn.execute("""
+            INSERT INTO decoded_sessions
+            (code, score1, score2, winner, phase)
+            VALUES (?, ?, ?, ?, ?)
+            """, (
+                code_saisi.strip(),
+                resultat["score1"],
+                resultat["score2"],
+                resultat["winner"],
+                resultat["phase"]
+            ))
+
+            conn.commit()
+            st.success("Séance enregistrée dans l'historique !")
+
+st.divider()
+st.subheader("📚 Historique des séances")
+
+historique = conn.execute("""
+SELECT created_at, code, score1, score2, winner
+FROM decoded_sessions
+ORDER BY id DESC
+""").fetchall()
+
+if historique:
+    st.dataframe(
+        historique,
+        use_container_width=True,
+        column_config={
+            "created_at": "Date",
+            "code": "Code",
+            "score1": "Équipe 1",
+            "score2": "Équipe 2",
+            "winner": "Vainqueur"
+        }
+    )
+else:
+    st.info("Aucune séance enregistrée pour le moment.")
+
+conn.close()
