@@ -622,6 +622,25 @@ SELECT COUNT(*) FROM predictions
 WHERE prediction_correct = 0
 """).fetchone()[0]
 
+# ==========================================
+# DETECTION DES FAVORIS BATTUS
+# ==========================================
+
+surprises = stats_conn.execute("""
+SELECT COUNT(*)
+FROM decoded_sessions
+WHERE winner IN (1, 2)
+AND odds1 IS NOT NULL
+AND odds2 IS NOT NULL
+AND (
+    (odds1 < odds2 AND winner = 2)
+    OR
+    (odds2 < odds1 AND winner = 1)
+)
+""").fetchone()[0]
+
+st.metric("⚠️ Surprises : favoris battus", surprises)
+
 taux_reussite = (
     pronostics_corrects / pronostics_evalues * 100
     if pronostics_evalues > 0 else 0
