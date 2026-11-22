@@ -795,7 +795,45 @@ pronostics_incorrects = stats_conn.execute("""
 SELECT COUNT(*) FROM predictions
 WHERE prediction_correct = 0
 """).fetchone()[0]
+# ==========================================
+# ANALYSE DES ERREURS DE PENALTYIQ
+# ==========================================
 
+erreurs = stats_conn.execute("""
+SELECT
+    team1,
+    team2,
+    odds1,
+    odds2,
+    predicted_winner,
+    actual_winner,
+    created_at
+FROM predictions
+WHERE prediction_correct = 0
+ORDER BY created_at DESC
+""").fetchall()
+
+st.subheader("🧠 Analyse des pronostics ratés")
+
+if erreurs:
+    df_erreurs = pd.DataFrame(
+        erreurs,
+        columns=[
+            "Équipe 1",
+            "Équipe 2",
+            "Cote 1",
+            "Cote 2",
+            "Pronostic",
+            "Vainqueur réel",
+            "Date"
+        ]
+    )
+
+    st.write("Nombre de pronostics ratés :", len(erreurs))
+    st.dataframe(df_erreurs, use_container_width=True)
+
+else:
+    st.success("Aucun pronostic raté enregistré pour le moment.")
 # ==========================================
 # DETECTION DES FAVORIS BATTUS
 # ==========================================
