@@ -855,5 +855,63 @@ if donnees_fiabilite:
 else:
     st.info("Pas encore de données pour mesurer la fiabilité des cotes.")
 
+# ==========================================
+# DETECTION DES PROFILS DE MATCHS PIEGES
+# ==========================================
+
+st.subheader("🚨 Analyse des profils de matchs")
+
+profils = stats_conn.execute("""
+SELECT
+    CASE
+        WHEN ABS(odds1 - odds2) / MIN(odds1, odds2) < 0.15
+            THEN 'Cotes très proches'
+        WHEN MAX(odds1, odds2) / MIN(odds1, odds2) < 1.50
+            THEN 'Favori modéré'
+        ELSE 'Favori très fort'
+    END AS profil,
+
+    COUNT(*) AS total,
+
+    SUM(CASE
+        WHEN (odds1 < odds2 AND winner = 1)
+          OR (odds2 < odds1 AND winner = 2)
+        THEN 1 ELSE 0
+    END) AS favoris_gagnants,
+
+    SUM(CASE
+        WHEN (odds1 < odds2 AND winner = 2)
+          OR (odds2 < odds1 AND winner = 1)
+        THEN 1 ELSE 0
+    END) AS surprises
+
+FROM decoded_sessions
+
+WHERE winner IN (1, 2)
+AND odds1 > 0
+AND odds2 > 0
+AND odds1 != odds2
+
+GROUP BY profil
+""").fetchall()
+
+if profils:
+    df_profils = pd.DataFrame(
+        profils,
+        columns=[
+            "Profil du match",
+            "Matchs analysés",
+            "Favoris gagnants",
+            "Surprises"
+        ]
+    )
+
+    st.dataframe(
+        df_profils,
+        use_container_width=True
+    )
+else:
+    st.info("Pas encore assez de résultats pour analyser les profils.")
+
 stats_conn.close()
 
