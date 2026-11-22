@@ -435,12 +435,6 @@ if match_id_saisi is not None:
     else:
         st.warning("Les cotes doivent être supérieures à zéro.")
 
-
-# ==========================================
-# MOTEUR DE PREDICTION PENALTYIQ
-# ==========================================
-
-
 # ==========================================
 # MOTEUR DE PREDICTION PENALTYIQ
 # ==========================================
@@ -512,7 +506,55 @@ if match_id_saisi is not None:
 
         # Comparaison des performances individuelles
         probabilite_historique1 = taux_a / (taux_a + taux_b)
+        # Historique des confrontations directes
+        confrontation = conn.execute("""
+        SELECT
+            COUNT(*),
+            SUM(
+                CASE
+                    WHEN LOWER(TRIM(winner)) = LOWER(TRIM(?))
+                    THEN 1 ELSE 0
+                END
+            )
+        FROM matches
+        WHERE status = 'Terminé'
+        AND winner IS NOT NULL
+        AND (
+            (
+                LOWER(TRIM(team_a)) = LOWER(TRIM(?))
+                AND LOWER(TRIM(team_b)) = LOWER(TRIM(?))
+            )
+            OR
+            (
+                LOWER(TRIM(team_a)) = LOWER(TRIM(?))
+                AND LOWER(TRIM(team_b)) = LOWER(TRIM(?))
+            )
+        )
+        """, (
+            equipe1_saisie,
+            equipe1_saisie,
+            equipe2_saisie,
+            equipe2_saisie,
+            equipe1_saisie
+        )).fetchone()
 
+        total_confrontations = confrontation[0] or 0
+        victoires_confrontations = confrontation[1] or 0
+
+        taux_confrontation = (
+            (victoires_confrontations + 1)
+            / (total_confrontations + 2)
+        )
+
+        poids_confrontation = min(
+            0.20,
+            total_confrontations / 25
+        )
+
+        probabilite_historique1 = (
+            probabilite_historique1 * (1 - poids_confrontation)
+            + taux_confrontation * poids_confrontation
+        )
         # Fiabilité selon les données disponibles
         fiabilite_historique = min(
             1,
